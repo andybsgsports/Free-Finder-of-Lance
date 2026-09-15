@@ -1,0 +1,4 @@
+node_modules/
+report*.md
+.claude/
+.DS_Store

@@ -1,0 +1,37 @@
+name: Daily hunt
+
+on:
+  schedule:
+    - cron: '0 13 * * *' # 8am US Central
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        hunt: [freelance, 3dprint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm test
+
+      - id: scan
+        run: node src/index.js --hunt ${{ matrix.hunt }} --out report.md
+
+      - name: File the digest
+        if: steps.scan.outputs.hits != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "${{ matrix.hunt }} leads — $(date -u +%Y-%m-%d) (${{ steps.scan.outputs.hits }})" \
+            --body-file report.md

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <item rdf:about="https://milwaukee.craigslist.org/cpg/d/data-entry-automation/7777777.html">
+    <title><![CDATA[Need someone to automate our data entry — $40/hr]]></title>
+    <link>https://milwaukee.craigslist.org/cpg/d/data-entry-automation/7777777.html</link>
+    <description><![CDATA[Small distributor here. Staff spend all day copying orders from email into our database by hand. Willing to pay for a script that does it.]]></description>
+    <dc:date>2026-09-14T12:30:00-05:00</dc:date>
+  </item>
+  <item rdf:about="https://milwaukee.craigslist.org/cpg/d/dog-walking/8888888.html">
+    <title><![CDATA[Dog walker wanted weekends]]></title>
+    <link>https://milwaukee.craigslist.org/cpg/d/dog-walking/8888888.html</link>
+    <description><![CDATA[Looking for someone to walk two labs on Saturdays. Paid cash.]]></description>
+    <dc:date>2026-09-14T13:00:00-05:00</dc:date>
+  </item>
+</rdf:RDF>

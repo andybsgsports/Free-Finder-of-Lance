@@ -1,0 +1,87 @@
+{
+  "name": "freelance",
+  "title": "Freelance leads — integration, automation, internal tools",
+  "minScore": 6,
+  "sources": [
+    { "type": "reddit", "name": "forhire" },
+    { "type": "reddit", "name": "jobbit" },
+    { "type": "reddit", "name": "smallbusiness" },
+    { "type": "reddit", "name": "Entrepreneur" },
+    { "type": "reddit", "name": "nocode" },
+    { "type": "reddit", "name": "shopify" },
+    { "type": "reddit", "name": "msp" },
+    { "type": "hackernews", "query": "SEEKING FREELANCER" },
+    { "type": "craigslist", "name": "milwaukee", "section": "cpg" },
+    { "type": "craigslist", "name": "chicago", "section": "cpg" },
+    { "type": "craigslist", "name": "madison", "section": "cpg" }
+  ],
+  "signals": {
+    "intent": {
+      "weight": 3,
+      "patterns": [
+        "\\[hiring\\]",
+        "seeking freelancer",
+        "looking for (a |an |some ?one|help)",
+        "need(ing)? (a |an |some ?one|help)",
+        "can (anyone|someone) (build|make|write|help|automate)",
+        "willing to pay",
+        "(want|wanting) to hire",
+        "hiring a"
+      ]
+    },
+    "skill": {
+      "weight": 3,
+      "patterns": [
+        "integrat(e|ion|ing)",
+        "\\bapi\\b",
+        "webhook",
+        "\\bsync(ing|ed)?\\b",
+        "automat(e|ed|ing|ion)",
+        "zapier|make\\.com|\\bn8n\\b|airtable",
+        "scrap(e|er|ing)",
+        "\\bscript(s|ing)?\\b",
+        "\\bcsv\\b|\\betl\\b",
+        "migrat(e|ion|ing)",
+        "quickbooks|netsuite|shopify|salesforce|hubspot|stripe",
+        "google (sheets|apps script)",
+        "dashboard|internal tool|back ?end|database"
+      ]
+    },
+    "pain": {
+      "weight": 2,
+      "patterns": [
+        "manual(ly)?",
+        "copy.{0,15}paste",
+        "by hand",
+        "spreadsheet",
+        "takes (hours|forever|too long)",
+        "tedious|repetitive",
+        "double entry|re-?enter"
+      ]
+    },
+    "budget": {
+      "weight": 2,
+      "patterns": [
+        "\\$\\s?\\d",
+        "budget",
+        "\\bpaid\\b",
+        "per hour|hourly|\\brate\\b",
+        "retainer",
+        "fixed price"
+      ]
+    }
+  },
+  "exclude": [
+    "\\[for ?hire\\]",
+    "\\[task\\]",
+    "my portfolio",
+    "hire me",
+    "i am available|im available",
+    "looking for work|seeking work|need a job",
+    "unpaid",
+    "equity only|revenue share|commission only|profit split",
+    "crypto|nft|web3|forex|trading bot",
+    "\\bmlm\\b",
+    "no pay|free of charge|for exposure"
+  ]
+}

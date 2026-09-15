@@ -1,0 +1,60 @@
+// Pure scoring. No network, no DOM — everything here is unit-tested.
+
+function compile(patterns, label) {
+  return patterns.flatMap((p) => {
+    try {
+      return [new RegExp(p, 'i')];
+    } catch {
+      console.warn(`skipping invalid pattern in ${label}: ${p}`);
+      return [];
+    }
+  });
+}
+
+export function compileHunt(hunt) {
+  const signals = Object.entries(hunt.signals || {}).map(([name, cfg]) => ({
+    name,
+    weight: cfg.weight ?? 1,
+    regexes: compile(cfg.patterns || [], `signals.${name}`),
+  }));
+  return {
+    ...hunt,
+    signals,
+    excludeRegexes: compile(hunt.exclude || [], 'exclude'),
+    minScore: hunt.minScore ?? 4,
+  };
+}
+
+// A group scores its full weight on first hit, then half-weight per additional
+// distinct pattern, capped at 2x. Stops keyword-stuffed posts from dominating.
+function groupScore(text, group) {
+  const hits = group.regexes.filter((re) => re.test(text)).length;
+  if (!hits) return 0;
+  return Math.min(group.weight * (1 + 0.5 * (hits - 1)), group.weight * 2);
+}
+
+export function scoreItem(item, compiled) {
+  const text = `${item.title}\n${item.body}`;
+  const excluded = compiled.excludeRegexes.find((re) => re.test(text));
+  if (excluded) {
+    return { ...item, score: 0, excluded: true, reason: `excluded by ${excluded.source}`, matched: [] };
+  }
+
+  let score = 0;
+  const matched = [];
+  for (const group of compiled.signals) {
+    const points = groupScore(text, group);
+    if (points > 0) {
+      score += points;
+      matched.push(group.name);
+    }
+  }
+  return { ...item, score: Number(score.toFixed(1)), excluded: false, matched };
+}
+
+export function rank(items, compiled) {
+  return items
+    .map((it) => scoreItem(it, compiled))
+    .filter((it) => !it.excluded && it.score >= compiled.minScore)
+    .sort((a, b) => b.score - a.score || (b.at || '').localeCompare(a.at || ''));
+}

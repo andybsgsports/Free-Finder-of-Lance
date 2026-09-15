@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>forhire</title>
+  <entry>
+    <author><name>/u/shopowner22</name></author>
+    <content type="html">&lt;div&gt;We run a small Shopify store and every single order gets re-entered into QuickBooks &lt;b&gt;manually&lt;/b&gt; by my wife. It takes hours every week. Looking for someone to build an integration between the two. Budget is around $2,000.&lt;/div&gt;</content>
+    <id>t3_aaa111</id>
+    <link href="https://www.reddit.com/r/forhire/comments/aaa111/hiring_shopify_quickbooks/" />
+    <updated>2026-09-14T15:04:00+00:00</updated>
+    <title>[Hiring] Shopify to QuickBooks sync — sick of manual entry</title>
+  </entry>
+  <entry>
+    <author><name>/u/devdude</name></author>
+    <content type="html">&lt;div&gt;Senior full stack developer available. React, Node, Python. Check my portfolio, rates negotiable.&lt;/div&gt;</content>
+    <id>t3_bbb222</id>
+    <link href="https://www.reddit.com/r/forhire/comments/bbb222/for_hire_fullstack/" />
+    <updated>2026-09-14T16:00:00+00:00</updated>
+    <title>[For Hire] Full stack dev, API integration experience</title>
+  </entry>
+  <entry>
+    <author><name>/u/moonboy</name></author>
+    <content type="html">&lt;div&gt;Looking for someone to build an automated crypto trading bot with exchange API integration. Revenue share only, no upfront pay.&lt;/div&gt;</content>
+    <id>t3_ccc333</id>
+    <link href="https://www.reddit.com/r/forhire/comments/ccc333/hiring_trading_bot/" />
+    <updated>2026-09-14T17:00:00+00:00</updated>
+    <title>[Hiring] Crypto trading bot developer needed</title>
+  </entry>
+  <entry>
+    <author><name>/u/cafeowner</name></author>
+    <content type="html">&lt;div&gt;Anyone know a good espresso machine repair place downtown?&lt;/div&gt;</content>
+    <id>t3_ddd444</id>
+    <link href="https://www.reddit.com/r/smallbusiness/comments/ddd444/espresso_repair/" />
+    <updated>2026-09-14T18:00:00+00:00</updated>
+    <title>Espresso machine repair recommendations?</title>
+  </entry>
+</feed>
