@@ -1,6 +1,6 @@
 // Public, no-auth feeds only. Atom (Reddit), RSS/RDF (Craigslist), JSON (HN Algolia).
 
-const UA = 'lead-finder/1.0 (personal daily digest; contact via GitHub)';
+const UA = 'free-finder-of-lance/1.0 (personal daily digest; contact via GitHub)';
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 

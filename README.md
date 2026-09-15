@@ -1,4 +1,4 @@
-# lead-finder
+# Free Finder of Lance
 
 Scans public feeds every morning for people who need integration, automation, or
 internal-tool work, scores them, and files the good ones as a GitHub issue — which
@@ -12,7 +12,7 @@ Milwaukee, Chicago and Madison.
 
 ## Setup
 
-1. Create an empty GitHub repo called `lead-finder` and push this folder to it.
+1. Create an empty GitHub repo called `free-finder-of-lance` and push this folder to it.
 2. That's it. The workflow runs daily at 8am Central and opens an issue when it finds
    anything. Watch the repo so issues email you.
 
