@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Scans public feeds daily for people who need work done, and digests the good ones.",
+  "description": "Scans public feeds daily for people who need integration and automation work.",
   "scripts": {
     "test": "node --test",
-    "freelance": "node src/index.js --hunt freelance",
-    "3dprint": "node src/index.js --hunt 3dprint"
+    "hunt": "node src/index.js --hunt freelance"
   }
 }

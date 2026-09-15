@@ -84,25 +84,6 @@ test('keyword stuffing cannot run away with the score', async () => {
   assert.ok(stuffed.score <= skillGroupMax + intentGroupMax, `group caps should bound the score, got ${stuffed.score}`);
 });
 
-test('3D print hunt finds unmet needs and ignores show-and-tell', async () => {
-  const compiled = compileHunt(await hunt('3dprint'));
-
-  const request = scoreItem({
-    title: 'Can someone design a dew shield for an 80mm refractor?',
-    body: "The commercial one was discontinued and I can't find anything that fits. I'd pay for a good STL.",
-    url: 'https://example.com/a',
-  }, compiled);
-  assert.equal(request.excluded, false);
-  assert.ok(request.score >= compiled.minScore, `expected a hit, got ${request.score}`);
-
-  const showoff = scoreItem({
-    title: 'Just printed this bracket for my telescope',
-    body: 'My latest print came out great, no stringing this time.',
-    url: 'https://example.com/b',
-  }, compiled);
-  assert.equal(showoff.excluded, true);
-});
-
 test('time window and dedupe', () => {
   const now = Date.now();
   const items = [
