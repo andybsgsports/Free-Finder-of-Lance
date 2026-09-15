@@ -6,6 +6,14 @@ function age(at) {
   return `${Math.round(mins / 1440)}d ago`;
 }
 
+// Shows the exact patterns that fired, so a bad match points straight at the
+// keyword to fix instead of leaving you guessing.
+function whyLines(hit) {
+  return Object.entries(hit.why || {})
+    .map(([group, patterns]) => `- **${group}**: \`${patterns.slice(0, 3).join('`, `')}\``)
+    .join('\n');
+}
+
 function snippet(item, chars = 260) {
   const body = item.body || '';
   if (body.length <= chars) return body;
@@ -26,13 +34,15 @@ export function buildReport(hits, { hunt, hours, errors = [], scanned = 0 }) {
   for (const hit of hits) {
     lines.push(`## ${hit.title}`);
     lines.push('');
-    lines.push(`**${hit.score}** · ${hit.source} · ${age(hit.at)}${hit.author ? ` · ${hit.author}` : ''} · matched: ${hit.matched.join(', ')}`);
+    lines.push(`**${hit.score}** · ${hit.source} · ${age(hit.at)}${hit.author ? ` · ${hit.author}` : ''}`);
     lines.push('');
     if (hit.body) {
       lines.push(`> ${snippet(hit).replace(/\n/g, ' ')}`);
       lines.push('');
     }
     lines.push(`${hit.url}`);
+    lines.push('');
+    lines.push(`<details><summary>why it matched</summary>\n\n${whyLines(hit)}\n</details>`);
     lines.push('');
   }
 

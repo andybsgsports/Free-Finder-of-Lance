@@ -29,9 +29,12 @@ export function compileHunt(hunt) {
 // A group scores its full weight on first hit, then half-weight per additional
 // distinct pattern, capped at 2x. Stops keyword-stuffed posts from dominating.
 function groupScore(text, group) {
-  const hits = group.regexes.filter((re) => re.test(text)).length;
-  if (!hits) return 0;
-  return Math.min(group.weight * (1 + 0.5 * (hits - 1)), group.weight * 2);
+  const hits = group.regexes.filter((re) => re.test(text));
+  if (!hits.length) return { points: 0, patterns: [] };
+  return {
+    points: Math.min(group.weight * (1 + 0.5 * (hits.length - 1)), group.weight * 2),
+    patterns: hits.map((re) => re.source),
+  };
 }
 
 export function scoreItem(item, compiled) {
@@ -43,11 +46,13 @@ export function scoreItem(item, compiled) {
 
   let score = 0;
   const matched = [];
+  const why = {};
   for (const group of compiled.signals) {
-    const points = groupScore(text, group);
+    const { points, patterns } = groupScore(text, group);
     if (points > 0) {
       score += points;
       matched.push(group.name);
+      why[group.name] = patterns;
     }
   }
 
@@ -64,7 +69,7 @@ export function scoreItem(item, compiled) {
     };
   }
 
-  return { ...item, score: Number(score.toFixed(1)), excluded: false, matched };
+  return { ...item, score: Number(score.toFixed(1)), excluded: false, matched, why };
 }
 
 export function rank(items, compiled) {

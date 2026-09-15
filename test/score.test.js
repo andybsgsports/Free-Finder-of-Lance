@@ -131,6 +131,35 @@ test('real hiring posts that are not your line of work are rejected', async () =
   }
 });
 
+// Advice forums are full of "looking for" and "need a" — none of it means hiring.
+test('people asking for advice or seeking work themselves are rejected', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+
+  const notLeads = [
+    {
+      title: 'I need an advice: SEO is already working a little for me BUT what is moving the needle in 2026?',
+      body: 'Small service business on the automation side. SEO is not brand new for us, we have done the basics. Looking for what actually works now.',
+    },
+    {
+      title: 'How to scale a high-quality cloud kitchen despite local pricing pushback?',
+      body: "I'm looking for strategic advice on helping my mom launch a cloud kitchen. Our background and offering: specialty high-end bakery.",
+    },
+    {
+      title: 'Looking to work for a small business',
+      body: 'I am looking for a virtual freelance job on the side, 20 hrs a week. I work full time in corporate. I have dual bachelors degrees and can do data entry, spreadsheets and automation.',
+    },
+    {
+      title: '[Hiring] Staff Software Engineer (IC4a) - TX, MD, SC, IN',
+      body: "We are seeking a Staff Software Engineer to drive our client's front-end platform and architecture. This role is ideal for a hands-on technical leader. 8+ years of experience.",
+    },
+  ];
+
+  for (const [i, post] of notLeads.entries()) {
+    const scored = scoreItem({ ...post, url: `https://example.com/advice${i}` }, compiled);
+    assert.equal(scored.excluded, true, `should have been rejected: ${post.title}`);
+  }
+});
+
 test('a genuine automation request still gets through', async () => {
   const compiled = compileHunt(await hunt('freelance'));
   const scored = scoreItem({
