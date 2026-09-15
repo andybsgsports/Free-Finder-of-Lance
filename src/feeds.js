@@ -55,6 +55,15 @@ export async function fetchReddit(subreddit, { sort = 'new' } = {}) {
   return parseFeed(xml, `r/${subreddit}`);
 }
 
+// Searches all of Reddit rather than one subreddit — catches a request for a
+// niche skill wherever it happens to get posted.
+export async function fetchRedditSearch(query, { sort = 'new', time = 'week' } = {}) {
+  const url = `https://www.reddit.com/search.rss?q=${encodeURIComponent(query)}`
+    + `&sort=${sort}&t=${time}&limit=100`;
+  const xml = await get(url);
+  return parseFeed(xml, `reddit:"${query}"`);
+}
+
 export async function fetchCraigslist(city, section = 'cpg') {
   const xml = await get(`https://${city}.craigslist.org/search/${section}?format=rss`);
   return parseFeed(xml, `craigslist/${city}`);
@@ -81,18 +90,24 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fetchSource(s) {
   if (s.type === 'reddit') return fetchReddit(s.name, s);
+  if (s.type === 'redditsearch') return fetchRedditSearch(s.query, s);
   if (s.type === 'craigslist') return fetchCraigslist(s.name, s.section);
   if (s.type === 'hackernews') return fetchHackerNews(s.query, s);
   return Promise.reject(new Error(`unknown source type: ${s.type}`));
 }
+
+// Throttling is per *host*, not per source type — subreddit feeds and Reddit
+// searches hit the same server and share the same rate limit.
+export const hostOf = (s) => (s.type === 'redditsearch' ? 'reddit' : s.type);
 
 // Reddit rate-limits anonymous traffic hard, so requests to one host go one at a
 // time with a gap between them. Different hosts still run in parallel.
 export async function collect(sources, { delayMs = 4000, retryMs = 12000, fetcher = fetchSource } = {}) {
   const byHost = new Map();
   for (const s of sources) {
-    if (!byHost.has(s.type)) byHost.set(s.type, []);
-    byHost.get(s.type).push(s);
+    const host = hostOf(s);
+    if (!byHost.has(host)) byHost.set(host, []);
+    byHost.get(host).push(s);
   }
 
   const items = [];

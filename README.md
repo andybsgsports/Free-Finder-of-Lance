@@ -7,7 +7,8 @@ emails you for free.
 No API keys. No paid services. No dependencies.
 
 **Sources:** r/forhire, r/jobbit, r/smallbusiness, r/Entrepreneur, r/nocode, r/shopify,
-r/msp, r/webdev, and Hacker News "SEEKING FREELANCER" threads.
+r/msp, r/webdev, r/Netsuite, site-wide Reddit searches for "netsuite consultant" and
+"netsuite integration", and Hacker News "SEEKING FREELANCER" threads.
 
 ## Setup
 
@@ -27,7 +28,7 @@ Or trigger it in GitHub: **Actions → Daily hunt → Run workflow**.
 ## How scoring works
 
 Each post is matched against signal groups defined in `hunts/freelance.json` — intent,
-skill, pain, budget. A group scores its full weight on the first match, then half-weight
+skill, specialty, pain, budget. A group scores its full weight on the first match, then half-weight
 for each additional distinct pattern, capped at 2× — so a post stuffed with keywords
 can't outrank a genuine request. Anything matching an `exclude` pattern is dropped
 outright, which is how `[For Hire]` service offers, crypto work, and equity-only
@@ -38,6 +39,11 @@ a **skill** match to qualify, no matter how high it scores otherwise. Without th
 the digest fills up with people hiring for things you don't do; the first live run
 proudly surfaced a butcher.
 
+The **specialty** group is the thumb on the scale: NetSuite, SuiteScript, SuiteFlow,
+RESTlets, saved searches, Celigo/Boomi/Workato. It isn't required, so general automation
+work still gets through — but a NetSuite request outscores an otherwise identical generic
+one and lands at the top of the digest.
+
 Posts scoring at or above `minScore` make the report, best first.
 
 ## Tuning it
@@ -45,6 +51,10 @@ Posts scoring at or above `minScore` make the report, best first.
 Everything lives in `hunts/freelance.json` — no code changes needed.
 
 - **Not enough results?** Lower `minScore`, or add subreddits to `sources`.
+- **Chasing a specific skill?** Add `{ "type": "redditsearch", "query": "your phrase" }`
+  to `sources`. That searches all of Reddit rather than one subreddit, so a request gets
+  found wherever it happens to get posted. Searches count against the same Reddit rate
+  limit as subreddit feeds, so add them a couple at a time.
 - **Too much noise?** Raise `minScore`, or add patterns to `exclude`.
 - **Different trade entirely?** Copy `hunts/freelance.json`, swap the keywords and
   sources, run `--hunt yourname`.

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseFeed, stripHtml, decode, withinHours, dedupe, collect } from '../src/feeds.js';
+import { parseFeed, stripHtml, decode, withinHours, dedupe, collect, hostOf, label } from '../src/feeds.js';
 import { compileHunt, scoreItem, rank } from '../src/score.js';
 
 const fixture = (name) => readFile(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -79,9 +79,17 @@ test('keyword stuffing cannot run away with the score', async () => {
     body: 'api integration sync webhook automation zapier scraping script migrate quickbooks shopify netsuite salesforce dashboard database',
     url: 'https://example.com/1',
   }, compiled);
-  const skillGroupMax = 3 * 2;
-  const intentGroupMax = 3 * 2;
-  assert.ok(stuffed.score <= skillGroupMax + intentGroupMax, `group caps should bound the score, got ${stuffed.score}`);
+  const skill = compiled.signals.find((g) => g.name === 'skill');
+  const skillHits = skill.regexes.filter((re) => re.test(`${stuffed.title} ${stuffed.body}`)).length;
+  assert.ok(skillHits >= 6, 'this fixture is supposed to stuff the skill group');
+
+  // Each group contributes at most 2x its weight no matter how many of its
+  // patterns fire, so the cap is derived from the config rather than hardcoded.
+  const cap = compiled.signals
+    .filter((g) => stuffed.matched.includes(g.name))
+    .reduce((sum, g) => sum + g.weight * 2, 0);
+  assert.ok(stuffed.score <= cap, `group caps should bound the score, got ${stuffed.score}`);
+  assert.ok(stuffed.score < skill.weight * skillHits, 'uncapped scoring would score far higher');
 });
 
 test('time window and dedupe', () => {
@@ -175,6 +183,77 @@ test('a genuine automation request still gets through', async () => {
   assert.equal(scored.excluded, false);
   assert.ok(scored.matched.includes('skill'), 'skill is required');
   assert.ok(scored.score >= compiled.minScore);
+});
+
+test('every configured source is one the fetcher knows how to handle', async () => {
+  const cfg = await hunt('freelance');
+  const known = new Set(['reddit', 'redditsearch', 'craigslist', 'hackernews']);
+  for (const s of cfg.sources) {
+    assert.ok(known.has(s.type), `unknown source type: ${s.type}`);
+    assert.ok(s.name || s.query, `source needs a name or a query: ${JSON.stringify(s)}`);
+  }
+  assert.ok(
+    cfg.sources.some((s) => s.type === 'redditsearch' && /netsuite consultant/i.test(s.query)),
+    'NetSuite consultant work is searched for by name',
+  );
+});
+
+test('NetSuite work is a lead, and outranks the same request without it', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+
+  const netsuite = scoreItem({
+    title: 'Looking for a NetSuite consultant to sync our orders',
+    body: 'We need a saved search exported into our warehouse every night. Staff re-enter it by hand today. Budget around $4,000.',
+    url: 'https://example.com/netsuite',
+  }, compiled);
+
+  assert.equal(netsuite.excluded, false, netsuite.reason);
+  assert.ok(netsuite.matched.includes('specialty'), 'NetSuite should register as specialty work');
+  assert.ok(netsuite.score >= compiled.minScore);
+
+  const generic = scoreItem({
+    title: 'Looking for a developer to sync our orders',
+    body: 'We need a report exported into our warehouse every night. Staff re-enter it by hand today. Budget around $4,000.',
+    url: 'https://example.com/generic',
+  }, compiled);
+
+  assert.equal(generic.excluded, false, generic.reason);
+  assert.ok(netsuite.score > generic.score, 'specialty work should rank above generic work');
+});
+
+test('a NetSuite job ad from a recruiter is still not a lead', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const scored = scoreItem({
+    title: 'Hiring a NetSuite Developer — full-time, remote',
+    body: "Our client is seeking a NetSuite developer with 8+ years of experience. Salary DOE, benefits package and 401k.",
+    url: 'https://example.com/recruiter',
+  }, compiled);
+  assert.equal(scored.excluded, true);
+});
+
+test('Reddit searches queue behind subreddit feeds — same host, same rate limit', async () => {
+  assert.equal(hostOf({ type: 'redditsearch', query: 'netsuite consultant' }), 'reddit');
+  assert.equal(hostOf({ type: 'reddit', name: 'Netsuite' }), 'reddit');
+
+  let inflight = 0;
+  let peak = 0;
+  const fetcher = async (s) => {
+    inflight += 1;
+    peak = Math.max(peak, inflight);
+    await new Promise((r) => setTimeout(r, 5));
+    inflight -= 1;
+    return [{ title: label(s), url: `https://x.com/${encodeURIComponent(label(s))}` }];
+  };
+
+  const { items, errors } = await collect([
+    { type: 'reddit', name: 'Netsuite' },
+    { type: 'redditsearch', query: 'netsuite consultant' },
+    { type: 'redditsearch', query: 'netsuite integration' },
+  ], { delayMs: 0, fetcher });
+
+  assert.equal(peak, 1, 'search.rss hits reddit.com too — it must share the queue');
+  assert.equal(items.length, 3);
+  assert.deepEqual(errors, []);
 });
 
 test('requests to one host never overlap, but different hosts start together', async () => {
