@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { parseFeed, parseListing, stripHtml, decode, withinHours, dedupe, collect, hostOf, label, order } from '../src/feeds.js';
-import { compileHunt, scoreItem, rank } from '../src/score.js';
+import { compileHunt, scoreItem, rank, misses, tally } from '../src/score.js';
+import { buildReport } from '../src/report.js';
 
 const fixture = (name) => readFile(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 const hunt = async (name) => JSON.parse(await readFile(new URL(`../hunts/${name}.json`, import.meta.url), 'utf8'));
@@ -406,6 +407,55 @@ test('backoff grows between retries rather than hammering a throttled host', asy
     globalThis.setTimeout = realSleep;
   }
   assert.deepEqual(waited, [10, 30], 'second wait should be longer than the first');
+});
+
+test('a quiet run still explains itself', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const items = [
+    {
+      // Scores on intent and budget but has no skill signal — the require gate.
+      title: '[Hiring] Someone to walk my dog on Tuesdays',
+      body: 'Paid, $40 a week.',
+      url: 'https://example.com/dog',
+    },
+    {
+      // Excluded outright by a pattern, so it is noise rather than a near miss.
+      title: '[For Hire] Full stack developer, API and automation work',
+      body: 'My rates are $60/hr.',
+      url: 'https://example.com/forhire',
+    },
+    {
+      title: '[Hiring] Need someone to sync our orders into QuickBooks automatically',
+      body: 'Staff re-enter every order by hand. Budget $2,500.',
+      url: 'https://example.com/real',
+    },
+  ];
+
+  const counts = tally(items, compiled);
+  assert.equal(counts.leads, 1);
+  assert.equal(counts.gated, 1, 'the dog walker is gated, not excluded');
+  assert.equal(counts.excluded, 1, '[For Hire] is excluded outright');
+
+  const near = misses(items, compiled);
+  assert.equal(near.length, 1, 'only the gated post is a near miss');
+  assert.match(near[0].title, /dog/);
+  assert.match(near[0].reason, /no skill signal/);
+  assert.ok(!near.some((m) => /For Hire/.test(m.title)), 'excluded noise is not a near miss');
+});
+
+test('the report shows near misses so a zero-lead run is still readable', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const near = misses([{
+    title: '[Hiring] Someone to walk my dog on Tuesdays',
+    body: 'Paid, $40 a week.',
+    url: 'https://example.com/dog',
+  }], compiled);
+
+  const md = buildReport([], { hunt: { title: 'Leads' }, hours: 26, scanned: 189, misses: near });
+  assert.match(md, /Nothing cleared the score threshold/);
+  assert.match(md, /Closest misses \(1\)/);
+  assert.match(md, /no skill signal/);
+  assert.match(md, /example\.com\/dog/);
 });
 
 test('invalid regex in a config is skipped, not fatal', () => {

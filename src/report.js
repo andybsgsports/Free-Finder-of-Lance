@@ -20,7 +20,7 @@ function snippet(item, chars = 260) {
   return `${body.slice(0, chars).trimEnd()}…`;
 }
 
-export function buildReport(hits, { hunt, hours, errors = [], scanned = 0 }) {
+export function buildReport(hits, { hunt, hours, errors = [], scanned = 0, misses = [] }) {
   const lines = [];
   lines.push(`# ${hunt.title}`);
   lines.push('');
@@ -29,6 +29,7 @@ export function buildReport(hits, { hunt, hours, errors = [], scanned = 0 }) {
 
   if (!hits.length) {
     lines.push('Nothing cleared the score threshold this run.');
+    lines.push('');
   }
 
   for (const hit of hits) {
@@ -43,6 +44,19 @@ export function buildReport(hits, { hunt, hours, errors = [], scanned = 0 }) {
     lines.push(`${hit.url}`);
     lines.push('');
     lines.push(`<details><summary>why it matched</summary>\n\n${whyLines(hit)}\n</details>`);
+    lines.push('');
+  }
+
+  if (misses.length) {
+    lines.push('---');
+    lines.push('');
+    lines.push(`<details><summary>Closest misses (${misses.length})</summary>`);
+    lines.push('');
+    for (const miss of misses) {
+      lines.push(`- **${miss.score}** — ${miss.reason || 'below threshold'} — [${miss.title}](${miss.url})`);
+    }
+    lines.push('');
+    lines.push('</details>');
     lines.push('');
   }
 

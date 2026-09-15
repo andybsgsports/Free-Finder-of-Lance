@@ -62,6 +62,11 @@ one and lands at the top of the digest.
 
 Posts scoring at or above `minScore` make the report, best first.
 
+A run that finds nothing still says why: the log prints a breakdown (leads, gated
+for a missing required signal, below `minScore`, excluded outright) and the report
+carries a collapsed **Closest misses** list. A silent run and a broken one look
+identical otherwise, and they need opposite fixes.
+
 ## Tuning it
 
 Everything lives in `hunts/freelance.json` — no code changes needed.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFile, writeFile, appendFile } from 'node:fs/promises';
 import { collect, withinHours, dedupe } from './feeds.js';
-import { compileHunt, rank } from './score.js';
+import { compileHunt, rank, misses, tally } from './score.js';
 import { buildReport } from './report.js';
 
 function arg(name, fallback = null) {
@@ -16,14 +16,25 @@ const out = arg('out');
 const hunt = JSON.parse(await readFile(new URL(`../hunts/${huntName}.json`, import.meta.url), 'utf8'));
 const { items, errors } = await collect(hunt.sources);
 const fresh = dedupe(withinHours(items, hours));
-const hits = rank(fresh, compileHunt(hunt));
-const report = buildReport(hits, { hunt, hours, errors, scanned: fresh.length });
+const compiled = compileHunt(hunt);
+const hits = rank(fresh, compiled);
+const nearMisses = misses(fresh, compiled);
+const report = buildReport(hits, { hunt, hours, errors, scanned: fresh.length, misses: nearMisses });
 
 if (out) {
   await writeFile(out, report);
   console.log(`${huntName}: ${hits.length} leads from ${fresh.length} posts → ${out}`);
 } else {
   console.log(report);
+}
+
+const counts = tally(fresh, compiled);
+console.log(
+  `breakdown: ${counts.leads} leads · ${counts.gated} missing a required signal`
+  + ` · ${counts.tooLow} below minScore ${compiled.minScore} · ${counts.excluded} excluded outright`,
+);
+for (const miss of nearMisses.slice(0, 5)) {
+  console.log(`  near: ${miss.score} — ${miss.reason || 'below threshold'} — ${miss.title.slice(0, 80)}`);
 }
 
 for (const err of errors) console.warn(`warn: ${err}`);

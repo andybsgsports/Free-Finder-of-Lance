@@ -72,6 +72,29 @@ export function scoreItem(item, compiled) {
   return { ...item, score: Number(score.toFixed(1)), excluded: false, matched, why };
 }
 
+// Everything that scored but did not make the cut, best first. Without this a
+// quiet run is indistinguishable from a broken one: "0 leads from 189 posts"
+// could mean the filter is working or that it rejects everything.
+export function misses(items, compiled, limit = 8) {
+  return items
+    .map((it) => scoreItem(it, compiled))
+    .filter((it) => (it.excluded || it.score < compiled.minScore) && it.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+// How each post was disposed of, for the one-line summary in the run log.
+export function tally(items, compiled) {
+  const counts = { leads: 0, gated: 0, tooLow: 0, excluded: 0 };
+  for (const it of items) {
+    const scored = scoreItem(it, compiled);
+    if (scored.excluded) counts[/^excluded by/.test(scored.reason) ? 'excluded' : 'gated'] += 1;
+    else if (scored.score < compiled.minScore) counts.tooLow += 1;
+    else counts.leads += 1;
+  }
+  return counts;
+}
+
 export function rank(items, compiled) {
   return items
     .map((it) => scoreItem(it, compiled))
