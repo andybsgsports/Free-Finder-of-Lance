@@ -10,10 +10,8 @@
     { "type": "reddit", "name": "nocode" },
     { "type": "reddit", "name": "shopify" },
     { "type": "reddit", "name": "msp" },
-    { "type": "hackernews", "query": "SEEKING FREELANCER" },
-    { "type": "craigslist", "name": "milwaukee", "section": "cpg" },
-    { "type": "craigslist", "name": "chicago", "section": "cpg" },
-    { "type": "craigslist", "name": "madison", "section": "cpg" }
+    { "type": "reddit", "name": "webdev" },
+    { "type": "hackernews", "query": "SEEKING FREELANCER" }
   ],
   "signals": {
     "intent": {

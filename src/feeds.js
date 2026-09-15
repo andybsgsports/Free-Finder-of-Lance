@@ -75,21 +75,49 @@ export async function fetchHackerNews(query, { hitsPerPage = 100 } = {}) {
   })).filter((it) => it.body);
 }
 
-// One source failing must never sink the whole run.
-export async function collect(sources) {
-  const results = await Promise.allSettled(sources.map((s) => {
-    if (s.type === 'reddit') return fetchReddit(s.name, s);
-    if (s.type === 'craigslist') return fetchCraigslist(s.name, s.section);
-    if (s.type === 'hackernews') return fetchHackerNews(s.query, s);
-    return Promise.reject(new Error(`unknown source type: ${s.type}`));
-  }));
+export const label = (s) => `${s.type}:${s.name || s.query}`;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function fetchSource(s) {
+  if (s.type === 'reddit') return fetchReddit(s.name, s);
+  if (s.type === 'craigslist') return fetchCraigslist(s.name, s.section);
+  if (s.type === 'hackernews') return fetchHackerNews(s.query, s);
+  return Promise.reject(new Error(`unknown source type: ${s.type}`));
+}
+
+// Reddit rate-limits anonymous traffic hard, so requests to one host go one at a
+// time with a gap between them. Different hosts still run in parallel.
+export async function collect(sources, { delayMs = 1500, retryMs = 5000, fetcher = fetchSource } = {}) {
+  const byHost = new Map();
+  for (const s of sources) {
+    if (!byHost.has(s.type)) byHost.set(s.type, []);
+    byHost.get(s.type).push(s);
+  }
 
   const items = [];
   const errors = [];
-  results.forEach((r, i) => {
-    if (r.status === 'fulfilled') items.push(...r.value);
-    else errors.push(`${sources[i].type}:${sources[i].name || sources[i].query} — ${r.reason.message}`);
-  });
+
+  await Promise.all([...byHost.values()].map(async (group) => {
+    for (const [i, source] of group.entries()) {
+      if (i > 0) await sleep(delayMs);
+      try {
+        items.push(...await fetcher(source));
+      } catch (err) {
+        if (!/429/.test(err.message)) {
+          errors.push(`${label(source)} — ${err.message}`);
+          continue;
+        }
+        try {
+          await sleep(retryMs);
+          items.push(...await fetcher(source));
+        } catch (retryErr) {
+          errors.push(`${label(source)} — ${retryErr.message} (after retry)`);
+        }
+      }
+    }
+  }));
+
   return { items, errors };
 }
 

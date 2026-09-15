@@ -7,8 +7,7 @@ emails you for free.
 No API keys. No paid services. No dependencies.
 
 **Sources:** r/forhire, r/jobbit, r/smallbusiness, r/Entrepreneur, r/nocode, r/shopify,
-r/msp, Hacker News "SEEKING FREELANCER" threads, and Craigslist computer gigs in
-Milwaukee, Chicago and Madison.
+r/msp, r/webdev, and Hacker News "SEEKING FREELANCER" threads.
 
 ## Setup
 
@@ -42,20 +41,24 @@ Everything lives in `hunts/freelance.json` — no code changes needed.
 
 - **Not enough results?** Lower `minScore`, or add subreddits to `sources`.
 - **Too much noise?** Raise `minScore`, or add patterns to `exclude`.
-- **Different city?** Change the Craigslist `name` fields to your metro's subdomain.
 - **Different trade entirely?** Copy `hunts/freelance.json`, swap the keywords and
   sources, run `--hunt yourname`.
+- **Craigslist?** The fetcher supports it (`{ "type": "craigslist", "name": "milwaukee",
+  "section": "cpg" }`) but Craigslist blocks datacenter IPs, so it 403s from GitHub
+  Actions. Add it only if you run the hunt from your own machine.
 
 Patterns are JavaScript regular expressions, case-insensitive. An invalid one is skipped
 with a warning rather than crashing the run.
 
 ## Limits worth knowing
 
-- **It reads public feeds only** — Reddit's `.rss` endpoints, Craigslist's `?format=rss`,
-  and the free Hacker News Algolia API. No logins, no scraping behind auth, no ToS games.
-- **Reddit rate-limits anonymous requests.** If a source gets throttled the run degrades
-  gracefully: every other source still reports, and the failure is listed at the bottom
-  of the digest.
+- **It reads public feeds only** — Reddit's `.rss` endpoints and the free Hacker News
+  Algolia API. No logins, no scraping behind auth, no ToS games.
+- **Reddit rate-limits anonymous requests hard.** Requests to a single host go one at a
+  time with a 1.5s gap, and a 429 gets one retry after a pause — without that, firing
+  all the subreddits at once gets most of them throttled. If a source still fails the
+  run degrades gracefully: every other source reports, and the failure is listed at the
+  bottom of the digest.
 - **Scoring is heuristic, not clever.** It will miss oddly-worded requests and
   occasionally surface junk. Treat the digest as a shortlist to skim, not a verdict.
   Tune the patterns as you learn what actually converts.

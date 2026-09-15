@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseFeed, stripHtml, decode, withinHours, dedupe } from '../src/feeds.js';
+import { parseFeed, stripHtml, decode, withinHours, dedupe, collect } from '../src/feeds.js';
 import { compileHunt, scoreItem, rank } from '../src/score.js';
 
 const fixture = (name) => readFile(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -100,6 +100,69 @@ test('time window and dedupe', () => {
     { title: 'c', url: 'https://x.com/2' },
   ];
   assert.equal(dedupe(dupes).length, 2);
+});
+
+test('requests to one host never overlap, but different hosts start together', async () => {
+  const inflight = { reddit: 0, hackernews: 0 };
+  const peak = { reddit: 0, hackernews: 0 };
+  const started = [];
+
+  const fetcher = async (s) => {
+    const key = s.name || s.query;
+    started.push(s.type);
+    inflight[s.type] += 1;
+    peak[s.type] = Math.max(peak[s.type], inflight[s.type]);
+    await new Promise((r) => setTimeout(r, 5));
+    inflight[s.type] -= 1;
+    return [{ title: key, url: `https://x.com/${key}` }];
+  };
+
+  const { items, errors } = await collect([
+    { type: 'reddit', name: 'forhire' },
+    { type: 'reddit', name: 'jobbit' },
+    { type: 'reddit', name: 'msp' },
+    { type: 'hackernews', query: 'SEEKING FREELANCER' },
+  ], { delayMs: 0, fetcher });
+
+  assert.equal(peak.reddit, 1, 'reddit requests must be serialized — this is what caused the 429s');
+  assert.deepEqual(new Set(started.slice(0, 2)), new Set(['reddit', 'hackernews']), 'hosts run in parallel');
+  assert.equal(items.length, 4);
+  assert.deepEqual(errors, []);
+});
+
+test('a 429 is retried once, then succeeds quietly', async () => {
+  let calls = 0;
+  const fetcher = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('429 Too Many Requests for https://www.reddit.com/r/forhire/new.rss');
+    return [{ title: 'recovered', url: 'https://x.com/ok' }];
+  };
+
+  const { items, errors } = await collect(
+    [{ type: 'reddit', name: 'forhire' }],
+    { delayMs: 0, retryMs: 0, fetcher },
+  );
+  assert.equal(calls, 2);
+  assert.deepEqual(items.map((i) => i.title), ['recovered']);
+  assert.deepEqual(errors, []);
+});
+
+test('a non-429 failure is reported without retry and never sinks the run', async () => {
+  let calls = 0;
+  const fetcher = async (s) => {
+    calls += 1;
+    if (s.name === 'dead') throw new Error('403 Forbidden');
+    return [{ title: s.name, url: `https://x.com/${s.name}` }];
+  };
+
+  const { items, errors } = await collect([
+    { type: 'reddit', name: 'dead' },
+    { type: 'reddit', name: 'alive' },
+  ], { delayMs: 0, retryMs: 0, fetcher });
+
+  assert.equal(calls, 2, '403 should not be retried');
+  assert.deepEqual(items.map((i) => i.title), ['alive']);
+  assert.deepEqual(errors, ['reddit:dead — 403 Forbidden']);
 });
 
 test('invalid regex in a config is skipped, not fatal', () => {
