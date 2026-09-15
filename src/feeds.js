@@ -88,7 +88,7 @@ function fetchSource(s) {
 
 // Reddit rate-limits anonymous traffic hard, so requests to one host go one at a
 // time with a gap between them. Different hosts still run in parallel.
-export async function collect(sources, { delayMs = 1500, retryMs = 5000, fetcher = fetchSource } = {}) {
+export async function collect(sources, { delayMs = 4000, retryMs = 12000, fetcher = fetchSource } = {}) {
   const byHost = new Map();
   for (const s of sources) {
     if (!byHost.has(s.type)) byHost.set(s.type, []);

@@ -102,6 +102,47 @@ test('time window and dedupe', () => {
   assert.equal(dedupe(dupes).length, 2);
 });
 
+// Every one of these actually showed up in a live run and was reported as a lead.
+test('real hiring posts that are not your line of work are rejected', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+
+  const junk = [
+    {
+      title: '[Hiring] Chicago - butcher to cut steaks from a 17lb dry-aged standing rib roast',
+      body: 'One-off job in Chicago. Saturday at 3pm. Paid, DM me for details.',
+    },
+    {
+      title: '[Hiring] Virtual Assistant/Chatter $20 Per Hour USD',
+      body: 'We are hiring a Virtual Assistant / Chatter for an intense remote position. $20 per hour.',
+    },
+    {
+      title: '[Hiring] Short Paid Online Task - US Only',
+      body: 'Around 20-30 minutes. Pay: $30 one-time. Basic computer skills required.',
+    },
+    {
+      title: '[Hiring] Staff Software Engineer (IC4a) - TX, MD, SC, IN',
+      body: 'Seeking a Staff Software Engineer, full-time position with benefits package and 401k, to drive our front-end platform and architecture.',
+    },
+  ];
+
+  for (const [i, post] of junk.entries()) {
+    const scored = scoreItem({ ...post, url: `https://example.com/junk${i}` }, compiled);
+    assert.equal(scored.excluded, true, `should have been rejected: ${post.title}`);
+  }
+});
+
+test('a genuine automation request still gets through', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const scored = scoreItem({
+    title: '[Hiring] Need someone to sync our orders into QuickBooks automatically',
+    body: 'Staff currently re-enter every order by hand, it takes hours. Budget $2,500.',
+    url: 'https://example.com/good',
+  }, compiled);
+  assert.equal(scored.excluded, false);
+  assert.ok(scored.matched.includes('skill'), 'skill is required');
+  assert.ok(scored.score >= compiled.minScore);
+});
+
 test('requests to one host never overlap, but different hosts start together', async () => {
   const inflight = { reddit: 0, hackernews: 0 };
   const peak = { reddit: 0, hackernews: 0 };

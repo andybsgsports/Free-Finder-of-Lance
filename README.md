@@ -33,6 +33,11 @@ can't outrank a genuine request. Anything matching an `exclude` pattern is dropp
 outright, which is how `[For Hire]` service offers, crypto work, and equity-only
 "opportunities" stay out of your digest.
 
+Signals listed in `require` are mandatory — a post must show both hiring **intent** and
+a **skill** match to qualify, no matter how high it scores otherwise. Without that gate
+the digest fills up with people hiring for things you don't do; the first live run
+proudly surfaced a butcher.
+
 Posts scoring at or above `minScore` make the report, best first.
 
 ## Tuning it

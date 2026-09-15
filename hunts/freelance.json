@@ -2,6 +2,7 @@
   "name": "freelance",
   "title": "Freelance leads — integration, automation, internal tools",
   "minScore": 6,
+  "require": ["intent", "skill"],
   "sources": [
     { "type": "reddit", "name": "forhire" },
     { "type": "reddit", "name": "jobbit" },
@@ -78,6 +79,11 @@
     "looking for work|seeking work|need a job",
     "unpaid",
     "equity only|revenue share|commission only|profit split",
+    "virtual assistant|\\bchatter\\b|onlyfans|\\bvsa\\b",
+    "online task|simple task|quick task|micro ?task",
+    "data entry (clerk|specialist|job)",
+    "full[- ]?time (position|role|employee)|\\bw2\\b|401 ?k|benefits package|salaried",
+    "survey|mystery shop|testimonial|voice ?over|\\bugc\\b",
     "crypto|nft|web3|forex|trading bot",
     "\\bmlm\\b",
     "no pay|free of charge|for exposure"

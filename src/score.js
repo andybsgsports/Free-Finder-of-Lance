@@ -22,6 +22,7 @@ export function compileHunt(hunt) {
     signals,
     excludeRegexes: compile(hunt.exclude || [], 'exclude'),
     minScore: hunt.minScore ?? 4,
+    require: hunt.require || [],
   };
 }
 
@@ -49,6 +50,20 @@ export function scoreItem(item, compiled) {
       matched.push(group.name);
     }
   }
+
+  // "Someone is hiring, and money exists" is not a lead — it has to be work you
+  // could actually do. Required signals gate the result no matter how high it scores.
+  const missing = compiled.require.filter((name) => !matched.includes(name));
+  if (missing.length) {
+    return {
+      ...item,
+      score: Number(score.toFixed(1)),
+      excluded: true,
+      reason: `no ${missing.join('/')} signal`,
+      matched,
+    };
+  }
+
   return { ...item, score: Number(score.toFixed(1)), excluded: false, matched };
 }
 
