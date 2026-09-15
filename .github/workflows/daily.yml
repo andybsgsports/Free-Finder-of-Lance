@@ -20,7 +20,12 @@ jobs:
 
       - run: npm test
 
+      # Optional. Set these two repo secrets and Reddit stops throttling the run.
+      # Without them the hunt still works, it just loses sources to 429s.
       - id: scan
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
         run: node src/index.js --hunt freelance --out report.md
 
       - name: File the digest

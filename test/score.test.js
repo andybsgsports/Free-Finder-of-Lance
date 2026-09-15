@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseFeed, stripHtml, decode, withinHours, dedupe, collect, hostOf, label } from '../src/feeds.js';
+import { parseFeed, parseListing, stripHtml, decode, withinHours, dedupe, collect, hostOf, label, order } from '../src/feeds.js';
 import { compileHunt, scoreItem, rank } from '../src/score.js';
 
 const fixture = (name) => readFile(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -317,6 +317,95 @@ test('a non-429 failure is reported without retry and never sinks the run', asyn
   assert.equal(calls, 2, '403 should not be retried');
   assert.deepEqual(items.map((i) => i.title), ['alive']);
   assert.deepEqual(errors, ['reddit:dead — 403 Forbidden']);
+});
+
+test('parses the authenticated JSON listing the same way as the public feed', () => {
+  const items = parseListing({
+    data: {
+      children: [
+        {
+          data: {
+            title: '[Hiring] NetSuite consultant for an order sync',
+            selftext: 'Budget around $4,000.',
+            permalink: '/r/Netsuite/comments/abc123/hiring_netsuite/',
+            author: 'opsmanager',
+            created_utc: 1789000000,
+          },
+        },
+        { data: { title: '', permalink: '/r/x/y/' } },
+      ],
+    },
+  }, 'r/Netsuite');
+
+  assert.equal(items.length, 1, 'a post with no title is not an item');
+  assert.equal(items[0].url, 'https://www.reddit.com/r/Netsuite/comments/abc123/hiring_netsuite/');
+  assert.equal(items[0].author, '/u/opsmanager');
+  assert.equal(items[0].source, 'r/Netsuite');
+  assert.match(items[0].at, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('the queue rotates daily so the throttled tail is not always the same sources', () => {
+  const group = [
+    { type: 'redditsearch', query: 'netsuite consultant', pin: true },
+    { type: 'reddit', name: 'a' },
+    { type: 'reddit', name: 'b' },
+    { type: 'reddit', name: 'c' },
+  ];
+  const on = (day) => order(group, day).map((s) => s.name || s.query);
+
+  assert.deepEqual(on(0), ['netsuite consultant', 'a', 'b', 'c']);
+  assert.deepEqual(on(1), ['netsuite consultant', 'b', 'c', 'a']);
+  assert.deepEqual(on(2), ['netsuite consultant', 'c', 'a', 'b']);
+  assert.deepEqual(on(3), on(0), 'the rotation comes back around');
+
+  // Whatever the day, nothing is dropped and the pinned source leads.
+  for (const day of [0, 1, 2, 5, 11, 40]) {
+    const names = on(day);
+    assert.equal(names[0], 'netsuite consultant');
+    assert.equal(new Set(names).size, group.length);
+  }
+});
+
+test('the hunt config pins NetSuite to the front of the queue', async () => {
+  const cfg = await hunt('freelance');
+  const reddit = cfg.sources.filter((s) => hostOf(s) === 'reddit');
+  const leading = order(reddit, 0).slice(0, 3).map((s) => s.name || s.query);
+  for (const name of leading) {
+    assert.match(name, /netsuite/i, `expected NetSuite sources to lead, got ${leading.join(', ')}`);
+  }
+});
+
+test('a persistently throttled source is retried twice, then reported', async () => {
+  let calls = 0;
+  const fetcher = async () => {
+    calls += 1;
+    throw new Error('429 Too Many Requests');
+  };
+
+  const { items, errors } = await collect(
+    [{ type: 'reddit', name: 'msp' }],
+    { delayMs: 0, retryMs: 0, fetcher },
+  );
+
+  assert.equal(calls, 3, 'one attempt plus two backoffs');
+  assert.deepEqual(items, []);
+  assert.deepEqual(errors, ['reddit:msp — 429 Too Many Requests (after 2 retries)']);
+});
+
+test('backoff grows between retries rather than hammering a throttled host', async () => {
+  const waited = [];
+  const realSleep = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms) => { waited.push(ms); return realSleep(fn, 0); };
+  try {
+    await collect([{ type: 'reddit', name: 'msp' }], {
+      delayMs: 0,
+      retryMs: 10,
+      fetcher: async () => { throw new Error('429 Too Many Requests'); },
+    });
+  } finally {
+    globalThis.setTimeout = realSleep;
+  }
+  assert.deepEqual(waited, [10, 30], 'second wait should be longer than the first');
 });
 
 test('invalid regex in a config is skipped, not fatal', () => {

@@ -25,6 +25,22 @@ node src/index.js --hunt freelance --hours 72 --out leads.md
 
 Or trigger it in GitHub: **Actions → Daily hunt → Run workflow**.
 
+### Optional: stop Reddit throttling the run (2 minutes, free)
+
+Anonymous Reddit traffic from a datacenter IP gets a small rate-limit budget,
+shared with every other scraper on GitHub's runners — a long queue loses its tail
+to `429`s every run. A logged-in app gets 100 requests a minute of its own.
+
+1. Go to <https://www.reddit.com/prefs/apps> → **create another app**.
+2. Pick **script**, give it any name, put `http://localhost` as the redirect URI.
+3. Copy the client ID (the string under the app name) and the secret.
+4. In this repo: **Settings → Secrets and variables → Actions → New repository
+   secret**. Add `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`.
+
+Nothing else changes. The code uses the authenticated API when those exist and
+falls back to the public feeds when they don't — including when the login itself
+fails, which is logged rather than taking the run down.
+
 ## How scoring works
 
 Each post is matched against signal groups defined in `hunts/freelance.json` — intent,
@@ -55,6 +71,10 @@ Everything lives in `hunts/freelance.json` — no code changes needed.
   to `sources`. That searches all of Reddit rather than one subreddit, so a request gets
   found wherever it happens to get posted. Searches count against the same Reddit rate
   limit as subreddit feeds, so add them a couple at a time.
+- **Something you never want to miss?** Add `"pin": true` to that source. Reddit requests
+  go one at a time, and a throttled run loses whatever is at the back of the queue —
+  pinned sources are always at the front. Everything else rotates by the day, so over a
+  week each source gets its turn leading instead of the same ones losing every time.
 - **Too much noise?** Raise `minScore`, or add patterns to `exclude`.
 - **Different trade entirely?** Copy `hunts/freelance.json`, swap the keywords and
   sources, run `--hunt yourname`.

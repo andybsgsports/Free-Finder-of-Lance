@@ -12,9 +12,9 @@
     { "type": "reddit", "name": "shopify" },
     { "type": "reddit", "name": "msp" },
     { "type": "reddit", "name": "webdev" },
-    { "type": "reddit", "name": "Netsuite" },
-    { "type": "redditsearch", "query": "netsuite consultant" },
-    { "type": "redditsearch", "query": "netsuite integration" },
+    { "type": "reddit", "name": "Netsuite", "pin": true },
+    { "type": "redditsearch", "query": "netsuite consultant", "pin": true },
+    { "type": "redditsearch", "query": "netsuite integration", "pin": true },
     { "type": "hackernews", "query": "SEEKING FREELANCER" }
   ],
   "signals": {

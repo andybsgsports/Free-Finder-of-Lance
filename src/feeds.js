@@ -50,18 +50,76 @@ async function get(url, as = 'text') {
   return as === 'json' ? res.json() : res.text();
 }
 
-export async function fetchReddit(subreddit, { sort = 'new' } = {}) {
-  const xml = await get(`https://www.reddit.com/r/${subreddit}/${sort}.rss?limit=100`);
-  return parseFeed(xml, `r/${subreddit}`);
+// Reddit's logged-in API allows 100 requests a minute per app; anonymous traffic
+// from a datacenter IP gets a far smaller share, and Actions runners share their
+// reputation with every other scraper on the range. Set REDDIT_CLIENT_ID and
+// REDDIT_CLIENT_SECRET and the throttling stops. Without them this still works,
+// it just loses sources to 429s.
+let tokenPromise = null;
+
+async function requestToken(id, secret) {
+  const res = await fetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
+    headers: {
+      authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`,
+      'content-type': 'application/x-www-form-urlencoded',
+      'user-agent': UA,
+    },
+    body: 'grant_type=client_credentials',
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const data = await res.json();
+  if (!data.access_token) throw new Error('no access_token in the response');
+  return data.access_token;
+}
+
+// One token per run, and a failed login degrades to anonymous rather than
+// taking every Reddit source down with it.
+function redditToken() {
+  const id = process.env.REDDIT_CLIENT_ID;
+  const secret = process.env.REDDIT_CLIENT_SECRET;
+  if (!id || !secret) return Promise.resolve(null);
+  if (!tokenPromise) {
+    tokenPromise = requestToken(id, secret).catch((err) => {
+      console.warn(`warn: Reddit login failed (${err.message}) — falling back to anonymous feeds`);
+      return null;
+    });
+  }
+  return tokenPromise;
+}
+
+// The authenticated host answers the same paths with JSON; the public host wants
+// `.rss` on the end and answers with Atom. Same paths either way.
+async function redditGet(path, params, source) {
+  const token = await redditToken();
+  const qs = new URLSearchParams({ ...params, limit: 100 }).toString();
+  if (!token) return parseFeed(await get(`https://www.reddit.com${path}.rss?${qs}`), source);
+
+  const url = `https://oauth.reddit.com${path}?${qs}`;
+  const res = await fetch(url, { headers: { authorization: `bearer ${token}`, 'user-agent': UA } });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+  return parseListing(await res.json(), source);
+}
+
+export function parseListing(json, source) {
+  return (json?.data?.children || []).map(({ data: d = {} }) => ({
+    source,
+    title: stripHtml(d.title || ''),
+    body: stripHtml(d.selftext || '').slice(0, 2000),
+    url: d.permalink ? `https://www.reddit.com${d.permalink}` : d.url || '',
+    author: d.author ? `/u/${d.author}` : '',
+    at: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null,
+  })).filter((it) => it.title && it.url);
+}
+
+export function fetchReddit(subreddit, { sort = 'new' } = {}) {
+  return redditGet(`/r/${subreddit}/${sort}`, {}, `r/${subreddit}`);
 }
 
 // Searches all of Reddit rather than one subreddit — catches a request for a
 // niche skill wherever it happens to get posted.
-export async function fetchRedditSearch(query, { sort = 'new', time = 'week' } = {}) {
-  const url = `https://www.reddit.com/search.rss?q=${encodeURIComponent(query)}`
-    + `&sort=${sort}&t=${time}&limit=100`;
-  const xml = await get(url);
-  return parseFeed(xml, `reddit:"${query}"`);
+export function fetchRedditSearch(query, { sort = 'new', time = 'week' } = {}) {
+  return redditGet('/search', { q: query, sort, t: time }, `reddit:"${query}"`);
 }
 
 export async function fetchCraigslist(city, section = 'cpg') {
@@ -100,9 +158,37 @@ function fetchSource(s) {
 // searches hit the same server and share the same rate limit.
 export const hostOf = (s) => (s.type === 'redditsearch' ? 'reddit' : s.type);
 
+// A serialized queue always burns its tail: the last sources in the list are the
+// ones Reddit throttles, run after run, so they never contribute. Rotating the
+// order by the day gives every source a turn at the front. Sources marked `pin`
+// stay there — those are the ones you actually care about.
+export function order(group, day = Math.floor(Date.now() / 86_400_000)) {
+  const pinned = group.filter((s) => s.pin);
+  const rest = group.filter((s) => !s.pin);
+  if (rest.length < 2) return [...pinned, ...rest];
+  const at = ((day % rest.length) + rest.length) % rest.length;
+  return [...pinned, ...rest.slice(at), ...rest.slice(0, at)];
+}
+
+// Retry only on 429, with a longer wait each time — a throttled host needs more
+// than a moment, and hammering it is what got us throttled in the first place.
+async function attempt(fetcher, source, waits) {
+  for (let i = 0; ; i += 1) {
+    try {
+      return { items: await fetcher(source) };
+    } catch (err) {
+      if (!/429/.test(err.message) || i >= waits.length) {
+        const tail = i ? ` (after ${i} ${i === 1 ? 'retry' : 'retries'})` : '';
+        return { error: `${label(source)} — ${err.message}${tail}` };
+      }
+      await sleep(waits[i]);
+    }
+  }
+}
+
 // Reddit rate-limits anonymous traffic hard, so requests to one host go one at a
 // time with a gap between them. Different hosts still run in parallel.
-export async function collect(sources, { delayMs = 4000, retryMs = 12000, fetcher = fetchSource } = {}) {
+export async function collect(sources, { delayMs = 4000, retryMs = 12000, fetcher = fetchSource, day } = {}) {
   const byHost = new Map();
   for (const s of sources) {
     const host = hostOf(s);
@@ -112,24 +198,14 @@ export async function collect(sources, { delayMs = 4000, retryMs = 12000, fetche
 
   const items = [];
   const errors = [];
+  const waits = [retryMs, retryMs * 3];
 
   await Promise.all([...byHost.values()].map(async (group) => {
-    for (const [i, source] of group.entries()) {
+    for (const [i, source] of order(group, day).entries()) {
       if (i > 0) await sleep(delayMs);
-      try {
-        items.push(...await fetcher(source));
-      } catch (err) {
-        if (!/429/.test(err.message)) {
-          errors.push(`${label(source)} — ${err.message}`);
-          continue;
-        }
-        try {
-          await sleep(retryMs);
-          items.push(...await fetcher(source));
-        } catch (retryErr) {
-          errors.push(`${label(source)} — ${retryErr.message} (after retry)`);
-        }
-      }
+      const result = await attempt(fetcher, source, waits);
+      if (result.error) errors.push(result.error);
+      else items.push(...result.items);
     }
   }));
 
