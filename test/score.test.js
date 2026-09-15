@@ -123,6 +123,11 @@ test('real hiring posts that are not your line of work are rejected', async () =
       title: '[Hiring] Staff Software Engineer (IC4a) - TX, MD, SC, IN',
       body: 'Seeking a Staff Software Engineer, full-time position with benefits package and 401k, to drive our front-end platform and architecture.',
     },
+    {
+      // Survived three runs by matching "script" — as in cursive lettering.
+      title: '[Hiring] Lf artist to design assets for my personal hoodie project',
+      body: 'Budget is 350$, but flexible. I am in search of an artist to commission. Requirements: bold script lettering across the chest, no thin fonts.',
+    },
   ];
 
   for (const [i, post] of junk.entries()) {
