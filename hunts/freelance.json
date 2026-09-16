@@ -15,7 +15,13 @@
     { "type": "reddit", "name": "Netsuite", "pin": true },
     { "type": "redditsearch", "query": "netsuite consultant", "pin": true },
     { "type": "redditsearch", "query": "netsuite integration", "pin": true },
-    { "type": "hackernews", "query": "SEEKING FREELANCER" }
+    { "type": "redditsearch", "query": "\"quickbooks integration\" OR \"quickbooks sync\"" },
+    { "type": "redditsearch", "query": "\"zapier developer\" OR \"n8n developer\" OR \"automation consultant\"" },
+    { "type": "redditsearch", "query": "\"hire a developer\" OR \"need a developer\"" },
+    { "type": "hackernews", "query": "SEEKING FREELANCER" },
+
+    { "type": "craigslist", "name": "milwaukee", "section": "cpg", "local": true },
+    { "type": "craigslist", "name": "chicago", "section": "cpg", "local": true }
   ],
   "signals": {
     "intent": {

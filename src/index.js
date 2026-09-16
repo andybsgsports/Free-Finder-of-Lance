@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile, appendFile } from 'node:fs/promises';
-import { collect, withinHours, dedupe } from './feeds.js';
+import { collect, withinHours, dedupe, selectSources } from './feeds.js';
 import { compileHunt, rank, misses, tally } from './score.js';
 import { buildReport } from './report.js';
 
@@ -14,7 +14,9 @@ const hours = Number(arg('hours', '26'));
 const out = arg('out');
 
 const hunt = JSON.parse(await readFile(new URL(`../hunts/${huntName}.json`, import.meta.url), 'utf8'));
-const { items, errors } = await collect(hunt.sources);
+const sources = selectSources(hunt.sources);
+const skipped = hunt.sources.length - sources.length;
+const { items, errors } = await collect(sources);
 const fresh = dedupe(withinHours(items, hours));
 const compiled = compileHunt(hunt);
 const hits = rank(fresh, compiled);
@@ -26,6 +28,10 @@ if (out) {
   console.log(`${huntName}: ${hits.length} leads from ${fresh.length} posts → ${out}`);
 } else {
   console.log(report);
+}
+
+if (skipped) {
+  console.log(`skipped ${skipped} source${skipped === 1 ? '' : 's'} that need a residential IP (set HUNT_LOCAL=1 to include them)`);
 }
 
 const counts = tally(fresh, compiled);

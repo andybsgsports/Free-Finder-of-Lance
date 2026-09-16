@@ -212,6 +212,15 @@ export async function collect(sources, { delayMs = 4000, retryMs = 12000, fetche
   return { items, errors };
 }
 
+// Craigslist blocks datacenter IPs, so sources marked `local` only run where the
+// request leaves from a residential address — your own machine, or a self-hosted
+// Actions runner. On GitHub's hosted runners they would just 403 every morning
+// and clutter the report with the same failure.
+export function selectSources(sources, { local } = {}) {
+  const enabled = local ?? /^(1|true|yes)$/i.test(process.env.HUNT_LOCAL || '');
+  return sources.filter((s) => !s.local || enabled);
+}
+
 export function withinHours(items, hours) {
   const cutoff = Date.now() - hours * 3600_000;
   return items.filter((it) => !it.at || new Date(it.at).getTime() >= cutoff);

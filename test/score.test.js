@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseFeed, parseListing, stripHtml, decode, withinHours, dedupe, collect, hostOf, label, order } from '../src/feeds.js';
+import { parseFeed, parseListing, stripHtml, decode, withinHours, dedupe, collect, hostOf, label, order, selectSources } from '../src/feeds.js';
 import { compileHunt, scoreItem, rank, misses, tally } from '../src/score.js';
 import { buildReport } from '../src/report.js';
 
@@ -456,6 +456,49 @@ test('the report shows near misses so a zero-lead run is still readable', async 
   assert.match(md, /Closest misses \(1\)/);
   assert.match(md, /no skill signal/);
   assert.match(md, /example\.com\/dog/);
+});
+
+test('Craigslist only runs where the request comes from a residential IP', async () => {
+  const cfg = await hunt('freelance');
+  const craigslist = cfg.sources.filter((s) => s.type === 'craigslist');
+  assert.ok(craigslist.length, 'Craigslist should be configured');
+  assert.ok(craigslist.every((s) => s.local), 'every Craigslist source must be marked local');
+
+  const hosted = selectSources(cfg.sources, { local: false });
+  assert.ok(!hosted.some((s) => s.type === 'craigslist'), 'hosted runners would only get a 403');
+  assert.equal(hosted.length, cfg.sources.length - craigslist.length, 'nothing else is dropped');
+
+  const own = selectSources(cfg.sources, { local: true });
+  assert.deepEqual(own, cfg.sources, 'your own machine runs everything');
+});
+
+test('HUNT_LOCAL opts in through the environment', () => {
+  const sources = [{ type: 'reddit', name: 'forhire' }, { type: 'craigslist', name: 'milwaukee', local: true }];
+  const was = process.env.HUNT_LOCAL;
+  try {
+    for (const [value, expected] of [['1', 2], ['true', 2], ['', 1], ['0', 1], ['no', 1]]) {
+      process.env.HUNT_LOCAL = value;
+      assert.equal(selectSources(sources).length, expected, `HUNT_LOCAL=${value}`);
+    }
+    delete process.env.HUNT_LOCAL;
+    assert.equal(selectSources(sources).length, 1, 'unset means hosted');
+  } finally {
+    if (was === undefined) delete process.env.HUNT_LOCAL;
+    else process.env.HUNT_LOCAL = was;
+  }
+});
+
+test('the added searches carry buyer language, not job-board language', async () => {
+  const cfg = await hunt('freelance');
+  const queries = cfg.sources.filter((s) => s.type === 'redditsearch').map((s) => s.query);
+  assert.ok(queries.length >= 5, `expected several searches, got ${queries.length}`);
+  for (const q of queries) {
+    assert.ok(q.trim().length > 3 && !/\n/.test(q), `malformed query: ${q}`);
+    // Balanced quotes, or the OR syntax silently searches for the wrong thing.
+    assert.equal((q.match(/"/g) || []).length % 2, 0, `unbalanced quotes: ${q}`);
+  }
+  assert.ok(queries.some((q) => /quickbooks/i.test(q)));
+  assert.ok(queries.some((q) => /zapier|n8n/i.test(q)));
 });
 
 test('invalid regex in a config is skipped, not fatal', () => {

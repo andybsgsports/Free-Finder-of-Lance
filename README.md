@@ -7,8 +7,15 @@ emails you for free.
 No API keys. No paid services. No dependencies.
 
 **Sources:** r/forhire, r/jobbit, r/smallbusiness, r/Entrepreneur, r/nocode, r/shopify,
-r/msp, r/webdev, r/Netsuite, site-wide Reddit searches for "netsuite consultant" and
-"netsuite integration", and Hacker News "SEEKING FREELANCER" threads.
+r/msp, r/webdev, r/Netsuite, Hacker News "SEEKING FREELANCER" threads, site-wide Reddit
+searches (NetSuite, QuickBooks, Zapier/n8n, "hire a developer"), and Craigslist computer
+gigs when you run it somewhere Craigslist will talk to — see below.
+
+Job boards are deliberately absent. Indeed retired its Publisher API and ZipRecruiter's is
+partner-only, but the real reason is that both list *employment* — employers with reqs and
+staffing agencies with placements. The `exclude` list here is already most of a description
+of a job board (`full-time`, `W2`, `401k`, `benefits package`, `salary`, `our client's`,
+`ideal candidate`, `years of experience`). Feeding it job boards adds volume, not leads.
 
 ## Setup
 
@@ -40,6 +47,32 @@ to `429`s every run. A logged-in app gets 100 requests a minute of its own.
 Nothing else changes. The code uses the authenticated API when those exist and
 falls back to the public feeds when they don't — including when the login itself
 fails, which is logged rather than taking the run down.
+
+### Optional: run it on your own machine to unlock Craigslist
+
+Craigslist blocks datacenter IPs outright, so it 403s from GitHub's runners every
+time. Craigslist computer gigs is worth having — it is one of the few places a
+small business owner directly posts "I will pay someone to fix this" — so those
+sources are marked `"local": true` and skipped unless the run comes from a
+residential address.
+
+To get them, point the workflow at a runner on a machine you leave on:
+
+1. Repo **Settings → Actions → Runners → New self-hosted runner**, and follow the
+   platform instructions. Run it as a service so it survives a reboot.
+2. Repo **Settings → Secrets and variables → Actions → Variables → New repository
+   variable**: name `HUNT_RUNNER`, value `self-hosted`.
+
+That is the whole switch. `runs-on` picks up the variable, `HUNT_LOCAL` turns on
+the `local` sources, and the Reddit throttling largely goes away too — it is the
+same datacenter-IP problem. Leave the variable unset and everything runs on
+GitHub exactly as it does today.
+
+Edit the `craigslist` entries in `hunts/freelance.json` to your own metro — they
+ship pointed at Milwaukee and Chicago. The city is the subdomain in a Craigslist
+URL, and `cpg` is the computer-gigs section.
+
+To run it locally by hand instead, `HUNT_LOCAL=1 npm run hunt`.
 
 ## How scoring works
 

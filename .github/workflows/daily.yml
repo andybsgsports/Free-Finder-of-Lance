@@ -11,7 +11,11 @@ permissions:
 
 jobs:
   hunt:
-    runs-on: ubuntu-latest
+    # Set a repository variable HUNT_RUNNER to "self-hosted" once you have a
+    # runner on your own machine. Craigslist and Reddit both throttle or block
+    # GitHub's datacenter IPs; a residential one they leave alone. Unset, this
+    # behaves exactly as before.
+    runs-on: ${{ vars.HUNT_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,13 +30,23 @@ jobs:
         env:
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          # Sources marked "local" (Craigslist) only run on your own runner.
+          HUNT_LOCAL: ${{ vars.HUNT_RUNNER != '' }}
         run: node src/index.js --hunt freelance --out report.md
 
+      # Uses github-script rather than the gh CLI: gh ships on GitHub's hosted
+      # runners but not on a machine you set up yourself, and this step has to
+      # keep working after you switch HUNT_RUNNER.
       - name: File the digest
         if: steps.scan.outputs.hits != '0'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh issue create \
-            --title "Leads — $(date -u +%Y-%m-%d) (${{ steps.scan.outputs.hits }})" \
-            --body-file report.md
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('node:fs').readFileSync('report.md', 'utf8');
+            const day = new Date().toISOString().slice(0, 10);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Leads — ${day} (${{ steps.scan.outputs.hits }})`,
+              body,
+            });
