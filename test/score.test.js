@@ -564,7 +564,7 @@ test('a mid-level contract role is not excluded just for saying "lead" once', as
   // "leads" here is a noun (sales leads), not a job-title prefix — should not
   // trip the widened staff/senior/principal/lead exclude pattern.
   const scored = scoreItem({
-    title: '[Hiring] Need a developer to build a dashboard tracking our sales leads',
+    title: '[Hiring] Need a developer to build an internal dashboard tracking our sales leads',
     body: 'Small business, budget around $2,000. Paid gig, not a job posting.',
     url: 'https://example.com/live-leads-noun',
   }, compiled);
@@ -636,4 +636,37 @@ test('urlsFromReport pulls lead URLs but not near-misses or source failures', ()
 
 test('urlKey ignores query strings, trailing slashes, and case', () => {
   assert.equal(urlKey('https://x.com/a/?utm=rss'), urlKey('https://X.com/a'));
+});
+
+// 2026-09-25 verification run: a completely unrelated AR/VR headset review
+// ("I decided not to wait for Phoenix", r/Xreal) scored 8 and made the digest.
+// Reddit's own search confirms the literal phrase "need a developer" or "hire
+// a developer" was somewhere in that long post — probably a tangential aside,
+// not the post's topic — combined with the bare "dashboard" and generic
+// "manually" both being common in any consumer-tech review. The post's actual
+// text isn't reproduced here (Reddit isn't reachable to fetch it), so this
+// synthesizes the same shape confirmed by the digest's own "why it matched"
+// diagnostic: an intent phrase used off-topic, plus bare skill words that a
+// product review would use for unrelated reasons.
+test('an off-topic product review does not qualify just for a stray "need a developer" aside', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const scored = scoreItem({
+    title: 'I decided not to wait for Phoenix',
+    body: 'With meta vr\'s 2.5k res per eye, extra fine detail may be lost. The heads-up dashboard '
+      + 'overlay is nice once you adjust it manually. Honestly reddit would need a developer to fix '
+      + 'search on this sub, it never finds anything.',
+    url: 'https://example.com/live-offtopic-vr',
+  }, compiled);
+  assert.equal(scored.excluded, true, scored.reason);
+});
+
+test('bare "dashboard" and "database" still need a business qualifier, but real asks keep working', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const skill = compiled.signals.find((g) => g.name === 'skill');
+  const fires = (text) => skill.regexes.some((re) => re.test(text));
+
+  assert.ok(!fires('the in-headset dashboard is smooth and responsive'), 'a product-UI dashboard is not a business signal');
+  assert.ok(!fires('exported everything into a local database for testing'), 'a bare database mention is not a business signal');
+  assert.ok(fires('sync orders into our database automatically'), '"our database" is the real phrasing seen in live leads');
+  assert.ok(fires('build us an internal dashboard for support tickets'), '"internal dashboard" is the real phrasing seen in live leads');
 });

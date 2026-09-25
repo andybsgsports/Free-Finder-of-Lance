@@ -119,7 +119,7 @@
         "migrat(e|ion|ing)",
         "quickbooks|netsuite|shopify|salesforce|hubspot|stripe",
         "google (sheets|apps script)",
-        "dashboard|internal tool|back ?end|database"
+        "(internal|custom|admin|reporting|back[- ]?office|client|our|company) dashboard|internal tool|back ?end|(internal|custom|admin|client|our|company) database"
       ]
     },
     "specialty": {
