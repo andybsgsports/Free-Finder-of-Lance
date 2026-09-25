@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { readFile, writeFile, appendFile } from 'node:fs/promises';
-import { collect, withinHours, dedupe, selectSources } from './feeds.js';
+import { collect, withinHours, dedupe, selectSources, unseen } from './feeds.js';
 import { compileHunt, rank, misses, tally } from './score.js';
-import { buildReport } from './report.js';
+import { buildReport, urlsFromReport } from './report.js';
 
 function arg(name, fallback = null) {
   const i = process.argv.indexOf(`--${name}`);
@@ -17,7 +17,11 @@ const hunt = JSON.parse(await readFile(new URL(`../hunts/${huntName}.json`, impo
 const sources = selectSources(hunt.sources);
 const skipped = hunt.sources.length - sources.length;
 const { items, errors } = await collect(sources);
-const fresh = dedupe(withinHours(items, hours));
+const seenFile = arg('seen');
+const seenUrls = seenFile ? urlsFromReport(await readFile(seenFile, 'utf8').catch(() => '')) : [];
+const recent = dedupe(withinHours(items, hours));
+const fresh = unseen(recent, seenUrls);
+if (seenFile) console.log(`already reported: ${recent.length - fresh.length} of ${recent.length} posts (from ${seenUrls.length} past leads)`);
 const compiled = compileHunt(hunt);
 const hits = rank(fresh, compiled);
 const nearMisses = misses(fresh, compiled);

@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseFeed, parseListing, stripHtml, decode, withinHours, dedupe, collect, hostOf, label, order, selectSources } from '../src/feeds.js';
+import { parseFeed, parseListing, stripHtml, decode, withinHours, dedupe, collect, hostOf, label, order, selectSources, unseen, urlKey } from '../src/feeds.js';
 import { compileHunt, scoreItem, rank, misses, tally } from '../src/score.js';
-import { buildReport } from '../src/report.js';
+import { buildReport, urlsFromReport } from '../src/report.js';
 
 const fixture = (name) => readFile(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 const hunt = async (name) => JSON.parse(await readFile(new URL(`../hunts/${name}.json`, import.meta.url), 'utf8'));
@@ -510,4 +510,130 @@ test('invalid regex in a config is skipped, not fatal', () => {
   });
   assert.equal(compiled.signals[0].regexes.length, 1);
   assert.ok(scoreItem({ title: 'valid request', body: '', url: 'https://x.com/1' }, compiled).score > 0);
+});
+
+// Every one of these showed up as a "lead" in a live digest between 2026-09-16
+// and 2026-09-24 and was not real work: recruiter listings with a leveling tag,
+// self-ads phrased as buyer intent, and a rhetorical-question ad that reposted
+// itself across subreddits three separate days.
+test('three weeks of live false positives are rejected', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+
+  const junk = [
+    {
+      title: '[Hiring] Lead Monitoring and Observability Engineer (IC3) -Remote US',
+      body: 'Our client is looking for a Lead Monitoring and Observability Engineer. This role is remote, US only. 8+ years of experience required.',
+    },
+    {
+      title: 'PHP/Symfony developer looking for projects',
+      body: "I'm a freelance PHP/Symfony developer with 6 years of experience, looking for projects. Portfolio and rates available on request.",
+    },
+    {
+      title: 'Is there a retool alternative that doesnt need a developer?',
+      body: 'We want an internal tool for our support team but nobody on staff can code. Looking for a no-code option, not looking to hire anyone.',
+    },
+    {
+      title: 'Need a Developer? Too Expensive or Taking Too Long?',
+      body: 'Check out our platform that matches you with vetted developers in 48 hours. Sign up free today.',
+    },
+    {
+      title: 'Can a complete non-technical person build and publish a rating/review website using Replit',
+      body: "I don't know how to code at all. Is it realistic to build something like this myself, or should I just accept I need a developer eventually?",
+    },
+  ];
+
+  for (const [i, post] of junk.entries()) {
+    const scored = scoreItem({ ...post, url: `https://example.com/live-junk${i}` }, compiled);
+    assert.equal(scored.excluded, true, `should have been rejected: ${post.title}`);
+  }
+});
+
+test('a genuine "hiring developer" post from the broad search still gets through', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  const scored = scoreItem({
+    title: 'Hiring developer for below role',
+    body: 'We need a developer to build a small internal dashboard syncing data from our API. Budget $3,000, paid on completion.',
+    url: 'https://example.com/live-good',
+  }, compiled);
+  assert.equal(scored.excluded, false, scored.reason);
+  assert.ok(scored.score >= compiled.minScore);
+});
+
+test('a mid-level contract role is not excluded just for saying "lead" once', async () => {
+  const compiled = compileHunt(await hunt('freelance'));
+  // "leads" here is a noun (sales leads), not a job-title prefix — should not
+  // trip the widened staff/senior/principal/lead exclude pattern.
+  const scored = scoreItem({
+    title: '[Hiring] Need a developer to build a dashboard tracking our sales leads',
+    body: 'Small business, budget around $2,000. Paid gig, not a job posting.',
+    url: 'https://example.com/live-leads-noun',
+  }, compiled);
+  assert.equal(scored.excluded, false, scored.reason);
+});
+
+test('the same post cross-posted to several subreddits is one lead, not several', () => {
+  // This is the actual 2026-09-24 digest: one self-promo post, four subreddits,
+  // four different URLs, listed as four separate "leads".
+  const crossPosted = [
+    { title: 'I built an app that finds freelance clients', author: '/u/Normal_Display_9541', url: 'https://www.reddit.com/r/buildinpublic/comments/1wof93r/x/' },
+    { title: 'I built an app that finds freelance clients', author: '/u/Normal_Display_9541', url: 'https://www.reddit.com/r/betatests/comments/1wof7vd/x/' },
+    { title: 'I built an app that finds freelance clients', author: '/u/Normal_Display_9541', url: 'https://www.reddit.com/r/SideProject/comments/1wof5jx/x/' },
+  ];
+  assert.equal(dedupe(crossPosted).length, 1);
+
+  // Two different people who happen to share a title are not the same post.
+  const coincidence = [
+    { title: 'Need a Developer? Too Expensive or Taking Too Long?', author: '/u/alice', url: 'https://x.com/a' },
+    { title: 'Need a Developer? Too Expensive or Taking Too Long?', author: '/u/bob', url: 'https://x.com/b' },
+  ];
+  assert.equal(dedupe(coincidence).length, 2);
+
+  // No author on either side (e.g. Craigslist) falls back to the URL alone.
+  const noAuthor = [
+    { title: 'a', url: 'https://x.com/1' },
+    { title: 'a', url: 'https://x.com/1?utm=rss' },
+  ];
+  assert.equal(dedupe(noAuthor).length, 1);
+});
+
+test('a post already reported in a past digest does not run again', async () => {
+  const previousReport = await fixture('past-digest.md').catch(() => null);
+  const seen = previousReport
+    ? urlsFromReport(previousReport)
+    : ['https://www.reddit.com/r/Netsuite/comments/abc/netsuite_help/'];
+
+  assert.ok(seen.length > 0);
+  const items = [
+    { title: 'NetSuite help', url: 'https://www.reddit.com/r/Netsuite/comments/abc/netsuite_help/' },
+    { title: 'Something brand new', url: 'https://www.reddit.com/r/forhire/comments/def/new/' },
+  ];
+  const left = unseen(items, seen);
+  assert.deepEqual(left.map((i) => i.title), ['Something brand new']);
+});
+
+test('urlsFromReport pulls lead URLs but not near-misses or source failures', () => {
+  const md = [
+    '# Freelance leads',
+    '',
+    '## A real lead',
+    '**9** · r/forhire · 1h ago',
+    '',
+    'https://example.com/lead1',
+    '',
+    '<details><summary>Closest misses (1)</summary>',
+    '',
+    '- **8** — no intent signal — [Not a lead](https://example.com/miss1)',
+    '',
+    '</details>',
+    '',
+    '**Sources that failed this run:**',
+    '',
+    '- reddit:forhire — 429 Too Many Requests for https://example.com/should-not-count',
+  ].join('\n');
+
+  assert.deepEqual(urlsFromReport(md), ['https://example.com/lead1']);
+});
+
+test('urlKey ignores query strings, trailing slashes, and case', () => {
+  assert.equal(urlKey('https://x.com/a/?utm=rss'), urlKey('https://X.com/a'));
 });

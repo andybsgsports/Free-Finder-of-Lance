@@ -71,3 +71,10 @@ export function buildReport(hits, { hunt, hours, errors = [], scanned = 0, misse
 
   return lines.join('\n');
 }
+
+// The lead URLs a digest reported — each sits alone on its own line under its
+// heading. Near misses and failed sources are left out: only leads count as seen.
+export function urlsFromReport(md = '') {
+  const leads = md.split(/<details><summary>Closest misses|^\*\*Sources that failed/m)[0];
+  return [...leads.matchAll(/^(https?:\/\/\S+)$/gm)].map((m) => m[1]);
+}

@@ -1,27 +1,87 @@
 {
   "name": "freelance",
-  "title": "Freelance leads — integration, automation, internal tools",
+  "title": "Freelance leads \u2014 integration, automation, internal tools",
   "minScore": 6,
-  "require": ["intent", "skill"],
+  "require": [
+    "intent",
+    "skill"
+  ],
   "sources": [
-    { "type": "reddit", "name": "forhire" },
-    { "type": "reddit", "name": "jobbit" },
-    { "type": "reddit", "name": "smallbusiness" },
-    { "type": "reddit", "name": "Entrepreneur" },
-    { "type": "reddit", "name": "nocode" },
-    { "type": "reddit", "name": "shopify" },
-    { "type": "reddit", "name": "msp" },
-    { "type": "reddit", "name": "webdev" },
-    { "type": "reddit", "name": "Netsuite", "pin": true },
-    { "type": "redditsearch", "query": "netsuite consultant", "pin": true },
-    { "type": "redditsearch", "query": "netsuite integration", "pin": true },
-    { "type": "redditsearch", "query": "\"quickbooks integration\" OR \"quickbooks sync\"" },
-    { "type": "redditsearch", "query": "\"zapier developer\" OR \"n8n developer\" OR \"automation consultant\"" },
-    { "type": "redditsearch", "query": "\"hire a developer\" OR \"need a developer\"" },
-    { "type": "hackernews", "query": "SEEKING FREELANCER" },
-
-    { "type": "craigslist", "name": "milwaukee", "section": "cpg", "local": true },
-    { "type": "craigslist", "name": "chicago", "section": "cpg", "local": true }
+    {
+      "type": "reddit",
+      "name": "forhire"
+    },
+    {
+      "type": "reddit",
+      "name": "jobbit"
+    },
+    {
+      "type": "reddit",
+      "name": "smallbusiness"
+    },
+    {
+      "type": "reddit",
+      "name": "Entrepreneur"
+    },
+    {
+      "type": "reddit",
+      "name": "nocode"
+    },
+    {
+      "type": "reddit",
+      "name": "shopify"
+    },
+    {
+      "type": "reddit",
+      "name": "msp"
+    },
+    {
+      "type": "reddit",
+      "name": "webdev"
+    },
+    {
+      "type": "reddit",
+      "name": "Netsuite",
+      "pin": true
+    },
+    {
+      "type": "redditsearch",
+      "query": "netsuite consultant",
+      "pin": true
+    },
+    {
+      "type": "redditsearch",
+      "query": "netsuite integration",
+      "pin": true
+    },
+    {
+      "type": "redditsearch",
+      "query": "\"quickbooks integration\" OR \"quickbooks sync\""
+    },
+    {
+      "type": "redditsearch",
+      "query": "\"zapier developer\" OR \"n8n developer\" OR \"automation consultant\""
+    },
+    {
+      "type": "redditsearch",
+      "query": "\"hire a developer\" OR \"need a developer\""
+    },
+    {
+      "type": "hackernews",
+      "query": "SEEKING FREELANCER"
+    },
+    {
+      "type": "craigslist",
+      "name": "milwaukee",
+      "section": "cpg",
+      "local": true
+    },
+    {
+      "type": "craigslist",
+      "name": "chicago",
+      "section": "cpg",
+      "local": true
+    }
   ],
   "signals": {
     "intent": {
@@ -102,7 +162,7 @@
     "my portfolio",
     "hire me",
     "i am available|im available|available for (work|hire)",
-    "looking (for|to find) (a |an )?(freelance |remote |part[- ]?time |virtual |developer |dev |consulting |consultant )*(job|work|gig|position|role)",
+    "looking (for|to find) (a |an )?(freelance |remote |part[- ]?time |virtual |developer |dev |consulting |consultant )*(job|work|gig|position|role|projects?|clients?|opportunit(y|ies))",
     "seeking work|need a job|looking to work for",
     "(my|our) (rates?|services|skills) (are|include)",
     "unpaid",
@@ -111,11 +171,15 @@
     "online task|simple task|quick task|micro ?task",
     "data entry (clerk|specialist|job)",
     "full[- ]?time|\\bw2\\b|401 ?k|benefits package|salaried|\\bsalary\\b",
-    "(staff|senior|principal|lead) (software |front[- ]?end |back[- ]?end |full[- ]?stack )?engineer",
+    "(staff|senior|principal|lead|sr\\.?) (\\w+[ -]){0,3}(engineer|developer|architect|manager)\\b",
     "our client'?s|this role is|ideal candidate|years of experience",
     "survey|mystery shop|testimonial|voice ?over|\\bugc\\b",
     "crypto|nft|web3|forex|trading bot",
     "\\bmlm\\b",
-    "no pay|free of charge|for exposure"
+    "no pay|free of charge|for exposure",
+    "\\(ic\\d",
+    "doesn'?t (need|require)|without (needing |requiring )?a (developer|dev|coder)|no (developer|coding|code) (needed|required)",
+    "(developer|designer|programmer|engineer|consultant)\\b.{0,25}(looking for|available for|open to) (new )?(projects|clients|work|opportunities)",
+    "too expensive or taking (too )?long"
   ]
 }

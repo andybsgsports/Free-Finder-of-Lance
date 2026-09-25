@@ -116,12 +116,27 @@ Everything lives in `hunts/freelance.json` — no code changes needed.
 - **Too much noise?** Raise `minScore`, or add patterns to `exclude`.
 - **Different trade entirely?** Copy `hunts/freelance.json`, swap the keywords and
   sources, run `--hunt yourname`.
-- **Craigslist?** The fetcher supports it (`{ "type": "craigslist", "name": "milwaukee",
-  "section": "cpg" }`) but Craigslist blocks datacenter IPs, so it 403s from GitHub
-  Actions. Add it only if you run the hunt from your own machine.
+- **A different city for Craigslist?** Edit the `name` on the existing `craigslist`
+  entries — see "run it on your own machine" above for why they're marked `local`.
 
 Patterns are JavaScript regular expressions, case-insensitive. An invalid one is skipped
 with a warning rather than crashing the run.
+
+## Not seeing the same lead twice
+
+Two separate problems used to show up as "the same post again":
+
+- **Cross-posting.** A post shared to four subreddits has four URLs but one author
+  and one title. `dedupe()` now treats a repeated (author, title) pair as one post,
+  the same as a repeated URL — the 2026-09-24 digest listed one self-promo post four
+  times before this.
+- **Cross-day overlap.** The lookback window is `--hours` (26 by default), so a post
+  from the last couple hours of yesterday's window is often still inside today's.
+  `--seen <file>` reads yesterday's report and drops anything it already listed as a
+  lead — near misses and failed sources don't count, so a post that missed the cut
+  yesterday still gets a fair look today. The workflow fetches the previous "Leads —"
+  issue automatically before each scan; running by hand, pass `--seen report.md` from
+  your last run, or skip the flag for a one-off check.
 
 ## Limits worth knowing
 

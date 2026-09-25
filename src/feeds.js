@@ -226,12 +226,25 @@ export function withinHours(items, hours) {
   return items.filter((it) => !it.at || new Date(it.at).getTime() >= cutoff);
 }
 
+export const urlKey = (url = '') => url.split('?')[0].replace(/\/+$/, '').toLowerCase();
+
+const titleKey = (it) => `${(it.author || '').toLowerCase()}|${(it.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`;
+
+// One post cross-posted to four subreddits has four URLs but one author and one
+// title — the 2026-09-24 digest listed the same self-promo post four times.
 export function dedupe(items) {
   const seen = new Set();
   return items.filter((it) => {
-    const key = it.url.split('?')[0];
-    if (seen.has(key)) return false;
-    seen.add(key);
+    const keys = [urlKey(it.url), it.author ? titleKey(it) : null].filter(Boolean);
+    if (keys.some((k) => seen.has(k))) return false;
+    keys.forEach((k) => seen.add(k));
     return true;
   });
+}
+
+// Drops anything an earlier digest already reported. Runs drift by an hour or
+// more, so a post near the edge of the window otherwise shows up two days running.
+export function unseen(items, seenUrls = []) {
+  const seen = new Set(seenUrls.map(urlKey));
+  return items.filter((it) => !seen.has(urlKey(it.url)));
 }
