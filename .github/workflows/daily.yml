@@ -15,7 +15,7 @@ jobs:
     # runner on your own machine. Craigslist and Reddit both throttle or block
     # GitHub's datacenter IPs; a residential one they leave alone. Unset, this
     # behaves exactly as before.
-    runs-on: ${{ vars.HUNT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ vars.HUNT_RUNNER || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
